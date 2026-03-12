@@ -13,7 +13,7 @@ export default function PlayerPage() {
   const navigate = useNavigate()
   const { user, userData, refreshUserData } = useAuth()
   const {
-    currentSong, isPlaying, isLoading, currentTime, duration,
+    currentSong, isPlaying, isLoading, isLoaded, currentTime, duration,
     lyrics, currentLyricIndex, volume, transpose, playbackRate,
     tracks, error,
     loadAndPlay, togglePlay, stop, seek, setVolume,
@@ -185,8 +185,8 @@ export default function PlayerPage() {
 
           <button
             className="kara-play-btn"
-            onClick={togglePlay}
-            disabled={isLoading}
+            onClick={() => togglePlay(user?.uid)}
+            disabled={isLoading || !isLoaded}
           >
             {isLoading ? (
               <div className="spinner" style={{ width: 24, height: 24, borderWidth: 2 }} />

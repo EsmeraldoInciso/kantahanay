@@ -43,7 +43,7 @@ export default function MiniPlayer() {
         <button className="btn btn-ghost btn-icon-sm" onClick={stop}>⏹</button>
         <button
           className="play-btn"
-          onClick={togglePlay}
+          onClick={() => togglePlay()}
           disabled={isLoading}
           style={{ width: 40, height: 40, fontSize: '1rem' }}
         >

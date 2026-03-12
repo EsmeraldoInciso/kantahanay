@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react'
+import * as Tone from 'tone'
 import { MidiPlayer, setMasterVolume } from '../services/midiEngine'
 import { incrementPlayCount } from '../services/songService'
 import { addRecentlyPlayed } from '../services/userService'
@@ -10,6 +11,7 @@ export function PlayerProvider({ children }) {
   const [currentSong, setCurrentSong] = useState(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [lyrics, setLyrics] = useState([])
@@ -27,9 +29,12 @@ export function PlayerProvider({ children }) {
     return playerRef.current
   }, [])
 
-  const loadAndPlay = useCallback(async (song, userId) => {
+  // Load song data (fetch + parse) without starting audio
+  const loadSong = useCallback(async (song) => {
     setError(null)
     setIsLoading(true)
+    setIsLoaded(false)
+    setIsPlaying(false)
     setCurrentSong(song)
     setLyrics([])
     setCurrentLyricIndex(-1)
@@ -51,17 +56,8 @@ export function PlayerProvider({ children }) {
         setCurrentTime(0)
       }
 
-      await player.play()
-      setIsPlaying(true)
+      setIsLoaded(true)
       setIsLoading(false)
-
-      // Track play count and recently played
-      try {
-        await incrementPlayCount(song.id)
-        if (userId) await addRecentlyPlayed(userId, song.id)
-      } catch {
-        // Non-critical
-      }
     } catch (err) {
       console.error('MIDI load error:', err)
       setError('Failed to load song. The file may be unavailable.')
@@ -69,16 +65,60 @@ export function PlayerProvider({ children }) {
     }
   }, [getPlayer])
 
-  const togglePlay = useCallback(() => {
+  // Start playing — MUST be called from a user gesture (click)
+  const startPlayback = useCallback(async (userId) => {
+    const player = getPlayer()
+    if (!isLoaded || !currentSong) return
+
+    try {
+      // Tone.start() requires user gesture — called here from click handler
+      await Tone.start()
+      await player.play()
+      setIsPlaying(true)
+
+      // Track play count
+      try {
+        await incrementPlayCount(currentSong.id)
+        if (userId) await addRecentlyPlayed(userId, currentSong.id)
+      } catch {
+        // Non-critical
+      }
+    } catch (err) {
+      console.error('Play error:', err)
+      setError('Failed to start playback.')
+    }
+  }, [getPlayer, isLoaded, currentSong])
+
+  // Combined load + mark ready (auto-play NOT called — user must click play)
+  const loadAndPlay = useCallback(async (song, userId) => {
+    await loadSong(song)
+    // Don't auto-play. The PlayerPage will show a play button.
+    // Save userId for when user clicks play
+  }, [loadSong])
+
+  const togglePlay = useCallback(async (userId) => {
     const player = getPlayer()
     if (isPlaying) {
       player.pause()
       setIsPlaying(false)
-    } else if (currentSong) {
-      player.play()
-      setIsPlaying(true)
+    } else if (isLoaded && currentSong) {
+      try {
+        await Tone.start()
+        await player.play()
+        setIsPlaying(true)
+
+        // Track on first play
+        try {
+          await incrementPlayCount(currentSong.id)
+          if (userId) await addRecentlyPlayed(userId, currentSong.id)
+        } catch {
+          // Non-critical
+        }
+      } catch (err) {
+        console.error('Play error:', err)
+      }
     }
-  }, [isPlaying, currentSong, getPlayer])
+  }, [isPlaying, isLoaded, currentSong, getPlayer])
 
   const stop = useCallback(() => {
     getPlayer().stop()
@@ -122,10 +162,10 @@ export function PlayerProvider({ children }) {
 
   return (
     <PlayerContext.Provider value={{
-      currentSong, isPlaying, isLoading, currentTime, duration,
+      currentSong, isPlaying, isLoading, isLoaded, currentTime, duration,
       lyrics, currentLyricIndex, volume, transpose, playbackRate,
       tracks, error,
-      loadAndPlay, togglePlay, stop, seek, setVolume,
+      loadAndPlay, loadSong, startPlayback, togglePlay, stop, seek, setVolume,
       setTranspose, setPlaybackRate, toggleMuteChannel,
     }}>
       {children}
