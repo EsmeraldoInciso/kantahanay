@@ -505,127 +505,434 @@ input, select, textarea {
   accent-color: var(--accent);
 }
 
-/* Karaoke / Lyrics Display */
-.lyrics-display {
+/* ============================================
+   KARAOKE PLAYER — Full-screen immersive UI
+   ============================================ */
+
+.kara-player {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: #050510;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.kara-bg-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 30%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.kara-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+/* Top bar */
+.kara-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.kara-back-btn,
+.kara-controls-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  background: rgba(255,255,255,0.05);
+}
+
+.kara-back-btn:hover,
+.kara-controls-toggle:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.1);
+}
+
+.kara-now-playing-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+/* Song info */
+.kara-song-info {
   text-align: center;
-  padding: 40px 20px;
-  min-height: 300px;
+  padding: 0 20px;
+  position: relative;
+  z-index: 10;
+}
+
+.kara-song-icon {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  animation: kara-pulse 2s ease-in-out infinite;
+}
+
+@keyframes kara-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.kara-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.kara-artist {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.kara-error {
+  text-align: center;
+  color: var(--danger);
+  padding: 8px 20px;
+  font-size: 0.85rem;
+}
+
+/* Lyrics container — the star of the show */
+.kara-lyrics-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  z-index: 10;
+  /* Fade edges */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+
+.kara-lyrics {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 40px 24px;
+}
+
+.kara-lyrics::-webkit-scrollbar {
+  display: none;
+}
+
+.kara-lyrics-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100%;
+  justify-content: center;
+  gap: 4px;
+}
+
+.kara-line {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.6;
+  padding: 6px 16px;
+  border-radius: 8px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 90%;
+}
+
+.kara-line-active {
+  color: #fff;
+  text-shadow:
+    0 0 20px rgba(139, 92, 246, 0.8),
+    0 0 40px rgba(139, 92, 246, 0.4),
+    0 0 80px rgba(139, 92, 246, 0.2);
+  transform: scale(1.08);
+  font-size: 2rem;
+}
+
+.kara-line-past {
+  color: rgba(139, 92, 246, 0.5);
+}
+
+.kara-line-upcoming {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Empty state */
+.kara-lyrics-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-}
-
-.lyrics-line {
-  font-size: 1.6rem;
-  font-weight: 600;
-  line-height: 2;
+  height: 100%;
   color: var(--text-muted);
-  transition: color 0.2s, transform 0.2s;
-}
-
-.lyrics-line.active {
-  color: var(--accent);
-  transform: scale(1.05);
-}
-
-.lyrics-line.past {
-  color: var(--text-secondary);
-}
-
-.lyrics-line.upcoming {
-  color: var(--text-muted);
-}
-
-.lyrics-empty {
-  color: var(--text-muted);
-  font-size: 1.1rem;
-}
-
-/* Player page */
-.player-page {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 32px 24px;
-  text-align: center;
-}
-
-.player-song-title {
-  font-family: var(--font-display);
-  font-size: 2rem;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.player-song-artist {
-  font-size: 1.1rem;
-  color: var(--text-secondary);
-  margin-bottom: 32px;
-}
-
-.player-controls-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 24px;
-}
-
-.play-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: white;
-  font-size: 1.4rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-}
-
-.play-btn:hover {
-  background: var(--accent-hover);
-  transform: scale(1.05);
-  box-shadow: 0 0 30px var(--accent-glow);
-}
-
-.player-time-bar {
-  display: flex;
-  align-items: center;
   gap: 12px;
-  margin-top: 16px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
-.player-time {
-  font-size: 0.85rem;
+.kara-lyrics-empty-icon {
+  opacity: 0.4;
+}
+
+.kara-lyrics-empty p {
+  font-size: 1.1rem;
+}
+
+.kara-lyrics-empty-sub {
+  font-size: 0.9rem !important;
+  opacity: 0.6;
+}
+
+/* Settings panel */
+.kara-settings-panel {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 20px;
+  background: rgba(255,255,255,0.03);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  justify-content: center;
+  align-items: center;
+}
+
+.kara-setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kara-setting-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   color: var(--text-muted);
   min-width: 40px;
-  font-variant-numeric: tabular-nums;
 }
 
-.player-extra-controls {
+.kara-setting-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.kara-setting-controls button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-primary);
+  font-size: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  margin-top: 20px;
-  flex-wrap: wrap;
+  transition: background 0.15s;
 }
 
-.control-group {
+.kara-setting-controls button:hover {
+  background: rgba(139, 92, 246, 0.3);
+}
+
+.kara-setting-value {
+  min-width: 36px;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.kara-volume-slider {
+  width: 100px;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.kara-tracks {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  flex-wrap: wrap;
 }
 
-.control-group label {
-  font-weight: 500;
+.kara-track-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.kara-track-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: all 0.15s;
+}
+
+.kara-track-chip:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* Transport / bottom controls */
+.kara-transport {
+  position: relative;
+  z-index: 10;
+  padding: 16px 20px 24px;
+  background: linear-gradient(to top, rgba(5,5,16,0.95), rgba(5,5,16,0.6));
+}
+
+.kara-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.kara-time {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  min-width: 36px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.kara-progress {
+  flex: 1;
+  height: 6px;
+  position: relative;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.kara-progress-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+
+.kara-progress-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.kara-progress-knob {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.kara-progress:hover .kara-progress-knob {
+  opacity: 1;
+}
+
+/* Main playback buttons */
+.kara-main-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.kara-ctrl-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+  background: rgba(255,255,255,0.05);
+}
+
+.kara-ctrl-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.1);
+}
+
+.kara-fav-active {
+  color: #ef4444 !important;
+}
+
+.kara-play-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  box-shadow: 0 4px 24px rgba(139, 92, 246, 0.4);
+}
+
+.kara-play-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 32px rgba(139, 92, 246, 0.6);
+  background: var(--accent-hover);
+}
+
+.kara-play-btn:disabled {
+  opacity: 0.5;
+}
+
+.kara-play-btn svg {
+  margin-left: 2px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .kara-title {
+    font-size: 1.2rem;
+  }
+  .kara-line {
+    font-size: 1.3rem;
+  }
+  .kara-line-active {
+    font-size: 1.5rem;
+  }
+  .kara-play-btn {
+    width: 56px;
+    height: 56px;
+  }
+  .kara-settings-panel {
+    gap: 10px;
+    padding: 10px 16px;
+  }
 }
 
 /* Queue / Party mode */

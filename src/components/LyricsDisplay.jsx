@@ -42,7 +42,7 @@ export default function LyricsDisplay({ lyrics, currentIndex, currentTime }) {
   // Auto-scroll to current line
   useEffect(() => {
     if (currentLineIndex < 0 || !containerRef.current) return
-    const elements = containerRef.current.querySelectorAll('.lyrics-line')
+    const elements = containerRef.current.querySelectorAll('.kara-line')
     const el = elements[currentLineIndex]
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -51,30 +51,47 @@ export default function LyricsDisplay({ lyrics, currentIndex, currentTime }) {
 
   if (!lyrics || lyrics.length === 0) {
     return (
-      <div className="lyrics-display">
-        <div className="lyrics-empty">
-          <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>♪</div>
-          <p>No lyrics available for this song</p>
-          <p style={{ fontSize: '0.9rem', marginTop: 8 }}>Enjoy the music!</p>
+      <div className="kara-lyrics" ref={containerRef}>
+        <div className="kara-lyrics-empty">
+          <div className="kara-lyrics-empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.4">
+              <path d="M9 18V5l12-2v13"/>
+              <circle cx="6" cy="18" r="3"/>
+              <circle cx="18" cy="16" r="3"/>
+            </svg>
+          </div>
+          <p>No lyrics available</p>
+          <p className="kara-lyrics-empty-sub">Enjoy the instrumental!</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="lyrics-display" ref={containerRef}>
-      {lines.map((line, i) => {
-        let className = 'lyrics-line'
-        if (i === currentLineIndex) className += ' active'
-        else if (i < currentLineIndex) className += ' past'
-        else className += ' upcoming'
+    <div className="kara-lyrics" ref={containerRef}>
+      <div className="kara-lyrics-scroll">
+        {lines.map((line, i) => {
+          let state = 'upcoming'
+          if (i === currentLineIndex) state = 'active'
+          else if (i < currentLineIndex) state = 'past'
 
-        return (
-          <div key={i} className={className}>
-            {line.text.trim() || '\u00A0'}
-          </div>
-        )
-      })}
+          // Show a few lines around current
+          const distance = Math.abs(i - currentLineIndex)
+          const isNearby = currentLineIndex < 0 ? i < 8 : distance <= 4
+
+          return (
+            <div
+              key={i}
+              className={`kara-line kara-line-${state}`}
+              style={{
+                opacity: isNearby ? (state === 'active' ? 1 : state === 'past' ? 0.35 : 0.5) : 0.15,
+              }}
+            >
+              {line.text.trim() || '\u00A0'}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

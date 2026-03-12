@@ -250,11 +250,13 @@ export function extractLyricsFromArrayBuffer(arrayBuffer) {
 
   if (data[0] !== 0x4D || data[1] !== 0x54) return lyrics
 
-  const headerLen = (data[8] << 24) | (data[9] << 16) | (data[10] << 8) | data[11]
-  const numTracks = (data[12] << 8) | data[13]
-  ticksPerQuarter = (data[14] << 8) | data[15]
+  // MThd header: bytes 0-3 = "MThd", bytes 4-7 = header data length (always 6),
+  // bytes 8-9 = format, bytes 10-11 = numTracks, bytes 12-13 = ticksPerQuarter
+  const headerDataLen = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7]
+  const numTracks = (data[10] << 8) | data[11]
+  ticksPerQuarter = (data[12] << 8) | data[13]
 
-  let offset = 8 + 4 + headerLen
+  let offset = 8 + headerDataLen
 
   function readVarLen(pos) {
     let value = 0
