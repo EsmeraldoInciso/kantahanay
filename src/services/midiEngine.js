@@ -2,37 +2,243 @@ import * as Tone from 'tone'
 import { Midi } from '@tonejs/midi'
 
 let masterGain = null
+let reverbNode = null
 const synthPool = new Map()
+const channelPrograms = new Map() // track program changes per channel
 
 function getMasterGain() {
   if (!masterGain) {
-    masterGain = new Tone.Gain(0.8).toDestination()
+    masterGain = new Tone.Gain(0.7).toDestination()
   }
   return masterGain
+}
+
+function getReverb() {
+  if (!reverbNode) {
+    reverbNode = new Tone.Reverb({ decay: 1.5, wet: 0.15 }).connect(getMasterGain())
+  }
+  return reverbNode
 }
 
 export function setMasterVolume(val) {
   getMasterGain().gain.value = Math.max(0, Math.min(1, val))
 }
 
-function getSynth(channel) {
-  if (synthPool.has(channel)) return synthPool.get(channel)
+// GM instrument categories by program number
+function getInstrumentCategory(program) {
+  if (program <= 7) return 'piano'
+  if (program <= 15) return 'chromatic' // celesta, glockenspiel, etc.
+  if (program <= 23) return 'organ'
+  if (program <= 31) return 'guitar'
+  if (program <= 39) return 'bass'
+  if (program <= 47) return 'strings'
+  if (program <= 55) return 'ensemble'
+  if (program <= 63) return 'brass'
+  if (program <= 71) return 'reed'
+  if (program <= 79) return 'pipe'
+  if (program <= 87) return 'synthlead'
+  if (program <= 95) return 'synthpad'
+  if (program <= 103) return 'synthfx'
+  if (program <= 111) return 'ethnic'
+  if (program <= 119) return 'percussive'
+  return 'sfx'
+}
 
-  const synth = new Tone.PolySynth(Tone.Synth, {
-    maxPolyphony: 16,
-    options: {
-      oscillator: { type: channel === 0 ? 'triangle' : 'sine' },
-      envelope: {
-        attack: 0.02,
-        decay: 0.3,
-        sustain: 0.4,
-        release: 0.8,
-      },
+function createSynthForCategory(category) {
+  const reverb = getReverb()
+
+  switch (category) {
+    case 'piano':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 12,
+        options: {
+          oscillator: { type: 'triangle8', partialCount: 4 },
+          envelope: { attack: 0.005, decay: 0.8, sustain: 0.2, release: 1.2 },
+          volume: -6,
+        },
+      }).connect(reverb)
+
+    case 'organ':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 10,
+        options: {
+          oscillator: { type: 'sine4' },
+          envelope: { attack: 0.05, decay: 0.1, sustain: 0.8, release: 0.3 },
+          volume: -10,
+        },
+      }).connect(reverb)
+
+    case 'guitar':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.01, decay: 0.4, sustain: 0.15, release: 0.6 },
+          volume: -8,
+        },
+      }).connect(reverb)
+
+    case 'bass':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 4,
+        options: {
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.01, decay: 0.3, sustain: 0.5, release: 0.3 },
+          volume: -6,
+        },
+      }).connect(getMasterGain()) // bass: no reverb
+
+    case 'strings':
+    case 'ensemble':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 12,
+        options: {
+          oscillator: { type: 'sawtooth8', partialCount: 3 },
+          envelope: { attack: 0.15, decay: 0.3, sustain: 0.7, release: 0.8 },
+          volume: -12,
+        },
+      }).connect(reverb)
+
+    case 'brass':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'sawtooth4' },
+          envelope: { attack: 0.06, decay: 0.2, sustain: 0.6, release: 0.4 },
+          volume: -10,
+        },
+      }).connect(reverb)
+
+    case 'reed':
+    case 'pipe':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'sine8' },
+          envelope: { attack: 0.04, decay: 0.2, sustain: 0.6, release: 0.5 },
+          volume: -10,
+        },
+      }).connect(reverb)
+
+    case 'synthlead':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 6,
+        options: {
+          oscillator: { type: 'square4' },
+          envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.4 },
+          volume: -10,
+        },
+      }).connect(reverb)
+
+    case 'synthpad':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'sine4' },
+          envelope: { attack: 0.3, decay: 0.4, sustain: 0.7, release: 1.5 },
+          volume: -12,
+        },
+      }).connect(reverb)
+
+    case 'chromatic':
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.001, decay: 0.5, sustain: 0.1, release: 0.8 },
+          volume: -8,
+        },
+      }).connect(reverb)
+
+    default:
+      return new Tone.PolySynth(Tone.Synth, {
+        maxPolyphony: 8,
+        options: {
+          oscillator: { type: 'triangle' },
+          envelope: { attack: 0.02, decay: 0.3, sustain: 0.4, release: 0.8 },
+          volume: -10,
+        },
+      }).connect(reverb)
+  }
+}
+
+// Create a basic noise-based drum synth
+let drumSynth = null
+function getDrumSynth() {
+  if (drumSynth) return drumSynth
+
+  drumSynth = {
+    kick: new Tone.MembraneSynth({
+      pitchDecay: 0.05,
+      octaves: 6,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.2 },
+      volume: -4,
+    }).connect(getMasterGain()),
+
+    snare: new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.001, decay: 0.15, sustain: 0, release: 0.1 },
+      volume: -10,
+    }).connect(getMasterGain()),
+
+    hihat: new Tone.NoiseSynth({
+      noise: { type: 'white' },
+      envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.02 },
+      volume: -16,
+    }).connect(getMasterGain()),
+
+    tom: new Tone.MembraneSynth({
+      pitchDecay: 0.03,
+      octaves: 4,
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 },
       volume: -8,
-    },
-  }).connect(getMasterGain())
+    }).connect(getMasterGain()),
+  }
 
-  synthPool.set(channel, synth)
+  return drumSynth
+}
+
+function playDrum(note, time, velocity) {
+  const drums = getDrumSynth()
+  const v = Math.min(velocity, 0.9)
+
+  try {
+    // GM drum map
+    switch (note) {
+      case 35: case 36: // Acoustic/Electric Bass Drum
+        drums.kick.triggerAttackRelease('C1', '8n', time, v)
+        break
+      case 38: case 40: // Snare
+        drums.snare.triggerAttackRelease('8n', time, v)
+        break
+      case 42: case 44: case 46: // Hi-hats
+        drums.hihat.triggerAttackRelease('32n', time, v * 0.6)
+        break
+      case 41: case 43: case 45: case 47: case 48: case 50: // Toms
+        drums.tom.triggerAttackRelease('C2', '8n', time, v)
+        break
+      case 49: case 51: case 52: case 53: case 55: case 57: case 59: // Cymbals
+        drums.hihat.triggerAttackRelease('16n', time, v * 0.5)
+        break
+      default:
+        // Generic percussion — use hihat
+        drums.hihat.triggerAttackRelease('32n', time, v * 0.4)
+        break
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function getSynth(channel, program = 0) {
+  const key = `${channel}-${program}`
+  if (synthPool.has(key)) return synthPool.get(key)
+
+  const category = getInstrumentCategory(program)
+  const synth = createSynthForCategory(category)
+  synthPool.set(key, synth)
   return synth
 }
 
@@ -154,7 +360,8 @@ export function extractLyricsFromArrayBuffer(arrayBuffer) {
         if ((metaType === 0x05 || metaType === 0x01) && len.value > 0 && pos + len.value <= data.length) {
           let text = ''
           for (let i = 0; i < len.value; i++) text += String.fromCharCode(data[pos + i])
-          if (absoluteTick > 0 || metaType === 0x05) {
+          // Skip KAR metadata lines that start with @
+          if (!text.startsWith('@') && (absoluteTick > 0 || metaType === 0x05)) {
             lyrics.push({ text, time: ticksToSeconds(absoluteTick), tick: absoluteTick })
           }
         }
@@ -209,6 +416,14 @@ export class MidiPlayer {
     this.lyrics = extractLyricsFromArrayBuffer(arrayBuffer)
     this.duration = this.midi.duration
 
+    // Extract program changes per channel
+    channelPrograms.clear()
+    for (const track of this.midi.tracks) {
+      if (track.instrument && track.instrument.number !== undefined) {
+        channelPrograms.set(track.channel, track.instrument.number)
+      }
+    }
+
     return { duration: this.duration, lyrics: this.lyrics, tracks: this.midi.tracks }
   }
 
@@ -224,35 +439,41 @@ export class MidiPlayer {
     this.startTime = now - startOffset / this.playbackRate
     this.isPlaying = true
 
-    // Schedule all notes using Tone.now() offsets (no Transport needed)
+    // Schedule all notes
     for (const track of this.midi.tracks) {
       const channel = track.channel
       if (this.mutedChannels.has(channel)) continue
-      if (channel === 9) continue // skip drums
 
-      const synth = getSynth(channel)
+      const program = channelPrograms.get(channel) || 0
 
       for (const note of track.notes) {
         const noteTime = note.time / this.playbackRate
         const playAt = now + noteTime - startOffset / this.playbackRate
 
-        if (playAt < now - 0.01) continue // skip past notes
+        if (playAt < now - 0.01) continue
 
         const midiNote = note.midi + this.transpose
-        if (midiNote < 21 || midiNote > 108) continue
+        if (midiNote < 0 || midiNote > 127) continue
+
+        // Channel 9 = drums (GM standard)
+        if (channel === 9) {
+          playDrum(note.midi, playAt, note.velocity)
+          continue
+        }
 
         const noteDur = Math.max(0.05, note.duration / this.playbackRate)
         const freq = Tone.Frequency(midiNote, 'midi').toFrequency()
 
+        const synth = getSynth(channel, program)
         try {
-          synth.triggerAttackRelease(freq, noteDur, playAt, Math.min(note.velocity, 0.9))
+          synth.triggerAttackRelease(freq, noteDur, playAt, Math.min(note.velocity, 0.85))
         } catch {
           // ignore — polyphony limit reached
         }
       }
     }
 
-    // Time update interval
+    // Time/lyrics update interval
     this._timeInterval = setInterval(() => {
       if (!this.isPlaying) return
       const elapsed = (Tone.now() - this.startTime) * this.playbackRate
@@ -324,7 +545,6 @@ export class MidiPlayer {
     } else {
       this.mutedChannels.add(channel)
     }
-    // Re-schedule with updated mutes
     if (this.isPlaying) {
       const cur = (Tone.now() - this.startTime) * this.playbackRate
       this._stopSounds()
@@ -348,12 +568,28 @@ export class MidiPlayer {
     synthPool.forEach(synth => {
       try { synth.releaseAll() } catch { /* ignore */ }
     })
+    // Release drum synths
+    if (drumSynth) {
+      try { drumSynth.kick.triggerRelease() } catch { /* */ }
+    }
   }
 
   dispose() {
     this.stop()
     synthPool.forEach(s => { try { s.dispose() } catch { /* */ } })
     synthPool.clear()
+    channelPrograms.clear()
+    if (drumSynth) {
+      try { drumSynth.kick.dispose() } catch { /* */ }
+      try { drumSynth.snare.dispose() } catch { /* */ }
+      try { drumSynth.hihat.dispose() } catch { /* */ }
+      try { drumSynth.tom.dispose() } catch { /* */ }
+      drumSynth = null
+    }
+    if (reverbNode) {
+      try { reverbNode.dispose() } catch { /* */ }
+      reverbNode = null
+    }
     if (masterGain) {
       try { masterGain.dispose() } catch { /* */ }
       masterGain = null

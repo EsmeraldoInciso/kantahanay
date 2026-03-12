@@ -4,18 +4,14 @@
  *
  * Reads import-data.json from the kantahanay-songs repo
  * and uploads each song entry to Firestore.
+ * Also removes old songs that are no longer in import-data.json.
  *
  * Usage:
  *   node scripts/firestore-upload.js
- *
- * Requires: Firebase Admin SDK credentials.
- * Set GOOGLE_APPLICATION_CREDENTIALS env var to your service account key JSON path.
- *
- * Or: Use the simpler web-based approach below with the Firebase client SDK.
  */
 
 import { initializeApp } from 'firebase/app'
-import { getFirestore, collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore'
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, where, serverTimestamp } from 'firebase/firestore'
 import fs from 'fs'
 import path from 'path'
 
@@ -41,14 +37,29 @@ if (!fs.existsSync(importFile)) {
 }
 
 const songs = JSON.parse(fs.readFileSync(importFile, 'utf-8'))
-console.log(`\nUploading ${songs.length} songs to Firestore...\n`)
+const newUrls = new Set(songs.map(s => s.file_url))
 
+// Step 1: Delete old songs not in the new import data
+console.log('\nStep 1: Cleaning up old songs...\n')
+const allDocs = await getDocs(collection(db, 'songs'))
+let deleted = 0
+for (const docSnap of allDocs.docs) {
+  const data = docSnap.data()
+  if (!newUrls.has(data.file_url)) {
+    await deleteDoc(doc(db, 'songs', docSnap.id))
+    console.log(`  🗑 Removed: ${data.title || data.file_url}`)
+    deleted++
+  }
+}
+console.log(`  Removed ${deleted} old songs`)
+
+// Step 2: Upload new songs
+console.log(`\nStep 2: Uploading ${songs.length} songs...\n`)
 let added = 0
 let skipped = 0
 
 for (const song of songs) {
   try {
-    // Check for duplicates by file_url
     const existing = await getDocs(
       query(collection(db, 'songs'), where('file_url', '==', song.file_url))
     )
@@ -74,5 +85,6 @@ for (const song of songs) {
 
 console.log(`\n✅ Added: ${added}`)
 console.log(`⏭  Skipped: ${skipped}`)
+console.log(`🗑  Deleted: ${deleted}`)
 console.log('\nDone! Songs should now appear in your Kantahanay app.')
 process.exit(0)
